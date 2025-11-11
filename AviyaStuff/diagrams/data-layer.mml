@@ -1,0 +1,223 @@
+%%
+%% Mermaid Class Diagram: Data Layer Architecture
+%% This diagram documents the storage-facing components (database config, entities,
+%% DAO interfaces, and repositories) that orchestrate persistence. Each section
+%% is grouped with "class" namespaces to keep relationships explicit.
+%%
+classDiagram
+    direction LR
+
+    class DbConfig {
+        +dbPath: String
+        +schemaVersion: Int
+        +migrationsDir: String
+        +load(): DbConfig
+    }
+
+    class LocalDatabase {
+        -DbConfig config
+        +connect(): Connection
+        +close(Connection)
+    }
+
+    class DatabaseInitializer {
+        -LocalDatabase database
+        +initialize()
+        +applySchema(schemaPath)
+        +applySeedData(seedPath)
+    }
+
+    class IngredientEntity {
+        +id: Int
+        +name: String
+        +defaultUnit: String
+        +category: String?
+    }
+
+    class InventoryEntity {
+        +id: Int
+        +ingredientId: Int
+        +quantity: Double
+        +unit: String
+        +expiresAt: String?
+        +updatedAt: String
+    }
+
+    class ShoppingItemEntity {
+        +id: Int
+        +ingredientId: Int
+        +quantity: Double
+        +unit: String
+        +status: String
+        +notes: String?
+        +createdAt: String
+    }
+
+    class RecipeEntity {
+        +id: Int
+        +name: String
+        +description: String?
+        +instructions: String?
+        +cuisine: String?
+        +createdAt: String
+        +favorite: Boolean
+    }
+
+    class RecipeIngredientEntity {
+        +recipeId: Int
+        +ingredientId: Int
+        +quantity: Double
+        +unit: String
+        +optional: Boolean
+    }
+
+    class MealPlanEntity {
+        +id: Int
+        +recipeId: Int
+        +scheduledFor: String
+        +servings: Int
+    }
+
+    class CookHistoryEntity {
+        +id: Int
+        +recipeId: Int
+        +cookedAt: String
+        +notes: String?
+    }
+
+    class IngredientsDao {
+        <<interface>>
+        +getAll(): List<IngredientEntity>
+        +findById(id: Int): IngredientEntity?
+        +insert(entity: IngredientEntity): Int
+        +update(entity: IngredientEntity)
+        +delete(id: Int)
+    }
+
+    class InventoryDao {
+        <<interface>>
+        +getAll(): List<InventoryEntity>
+        +getExpiring(thresholdDate: String): List<InventoryEntity>
+        +upsert(entity: InventoryEntity)
+        +delete(id: Int)
+    }
+
+    class ShoppingDao {
+        <<interface>>
+        +getByStatus(status: String): List<ShoppingItemEntity>
+        +insert(entity: ShoppingItemEntity): Int
+        +update(entity: ShoppingItemEntity)
+        +delete(id: Int)
+    }
+
+    class RecipesDao {
+        <<interface>>
+        +getAll(): List<RecipeEntity>
+        +findById(id: Int): RecipeEntity?
+        +insert(entity: RecipeEntity): Int
+        +update(entity: RecipeEntity)
+        +delete(id: Int)
+    }
+
+    class RecipeIngredientsDao {
+        <<interface>>
+        +getByRecipeId(recipeId: Int): List<RecipeIngredientEntity>
+        +insert(entity: RecipeIngredientEntity)
+        +delete(recipeId: Int, ingredientId: Int)
+    }
+
+    class MealPlansDao {
+        <<interface>>
+        +getAll(): List<MealPlanEntity>
+        +findByDate(date: String): List<MealPlanEntity>
+        +insert(entity: MealPlanEntity): Int
+        +delete(id: Int)
+    }
+
+    class CookHistoryDao {
+        <<interface>>
+        +getRecent(limit: Int): List<CookHistoryEntity>
+        +insert(entity: CookHistoryEntity): Int
+        +delete(id: Int)
+    }
+
+    class DataMapper {
+        +toIngredient(entity: IngredientEntity): Ingredient
+        +toInventoryItem(entity: InventoryEntity, ingredient: Ingredient): InventoryItem
+        +toShoppingItem(entity: ShoppingItemEntity, ingredient: Ingredient): ShoppingItem
+        +toRecipe(entity: RecipeEntity, ingredients: List<RecipeIngredient>): Recipe
+        +toMealPlan(entity: MealPlanEntity, recipe: Recipe): MealPlan
+        +toCookHistory(entity: CookHistoryEntity, recipe: Recipe): CookHistoryEntry
+        +toEntity(domain: Any): Any
+    }
+
+    class DataValidator {
+        +validateUnit(unit: String): Boolean
+        +validateQuantity(quantity: Double): Boolean
+        +validateDateTime(isoString: String): Boolean
+    }
+
+    class QueryBuilder {
+        +buildInventoryQuery(filters: Map<String, Any?>): String
+        +buildRecipeSearchQuery(criteria: Map<String, Any?>): String
+    }
+
+    class PantryRepository {
+        +getInventory(): List<InventoryItem>
+        +updateInventory(item: InventoryItem)
+        +getShoppingList(status: String): List<ShoppingItem>
+        +addShoppingItem(item: ShoppingItem)
+    }
+
+    class RecipeRepository {
+        +getAllRecipes(): List<Recipe>
+        +getRecipeById(id: Int): Recipe?
+        +getCookableRecipes(inventory: List<InventoryItem>): List<Recipe>
+    }
+
+    class PlanningRepository {
+        +getUpcomingMeals(): List<MealPlan>
+        +saveMealPlan(plan: MealPlan)
+        +getCookHistory(): List<CookHistoryEntry>
+        +markAsCooked(entry: CookHistoryEntry)
+    }
+
+    DbConfig <|-- LocalDatabase : configures
+    LocalDatabase <.. DatabaseInitializer : uses connection
+    DatabaseInitializer --> DbConfig : reads
+
+    IngredientsDao --> IngredientEntity
+    InventoryDao --> InventoryEntity
+    ShoppingDao --> ShoppingItemEntity
+    RecipesDao --> RecipeEntity
+    RecipeIngredientsDao --> RecipeIngredientEntity
+    MealPlansDao --> MealPlanEntity
+    CookHistoryDao --> CookHistoryEntity
+
+    PantryRepository --> InventoryDao
+    PantryRepository --> ShoppingDao
+    PantryRepository --> IngredientsDao
+    PantryRepository --> DataMapper
+    PantryRepository --> DataValidator
+
+    RecipeRepository --> RecipesDao
+    RecipeRepository --> RecipeIngredientsDao
+    RecipeRepository --> IngredientsDao
+    RecipeRepository --> DataMapper
+    RecipeRepository --> DataValidator
+
+    PlanningRepository --> MealPlansDao
+    PlanningRepository --> CookHistoryDao
+    PlanningRepository --> RecipeRepository
+    PlanningRepository --> DataMapper
+
+    DataMapper --> IngredientEntity
+    DataMapper --> InventoryEntity
+    DataMapper --> ShoppingItemEntity
+    DataMapper --> RecipeEntity
+    DataMapper --> RecipeIngredientEntity
+    DataMapper --> MealPlanEntity
+    DataMapper --> CookHistoryEntity
+
+    QueryBuilder <.. InventoryDao : optional helper
+    QueryBuilder <.. RecipesDao : optional helper
