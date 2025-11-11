@@ -1,0 +1,157 @@
+%%
+%% Mermaid Class Diagram: Domain and Application Services
+%% This diagram expands on the business-layer abstractions that sit on top of the
+%% repositories. It documents domain models, service managers (facades), and
+%% focused use cases to clarify how composition implements OOP principles.
+%%
+classDiagram
+    direction TB
+
+    class Ingredient {
+        +id: Int
+        +name: String
+        +defaultUnit: String
+        +category: String?
+    }
+
+    class InventoryItem {
+        +ingredient: Ingredient
+        +quantity: Double
+        +unit: String
+        +expiresAt: String?
+        +updatedAt: String
+        +needsRestock(threshold: Double): Boolean
+    }
+
+    class ShoppingItem {
+        +id: Int
+        +ingredient: Ingredient
+        +quantity: Double
+        +unit: String
+        +status: String
+        +notes: String?
+        +createdAt: String
+        +markPurchased()
+    }
+
+    class RecipeIngredient {
+        +ingredient: Ingredient
+        +quantity: Double
+        +unit: String
+        +optional: Boolean
+    }
+
+    class Recipe {
+        +id: Int
+        +name: String
+        +description: String?
+        +instructions: String?
+        +cuisine: String?
+        +createdAt: String
+        +favorite: Boolean
+        +ingredients: List<RecipeIngredient>
+        +toggleFavorite()
+    }
+
+    class MealPlan {
+        +id: Int
+        +recipe: Recipe
+        +scheduledFor: String
+        +servings: Int
+        +isPast(currentDate: String): Boolean
+    }
+
+    class CookHistoryEntry {
+        +id: Int
+        +recipe: Recipe
+        +cookedAt: String
+        +notes: String?
+    }
+
+    class PantryRepository
+    class RecipeRepository
+    class PlanningRepository
+
+    class PantryManager {
+        -PantryRepository pantryRepository
+        +getInventory(): List<InventoryItem>
+        +syncShoppingToInventory(): List<ShoppingItem>
+        +updateItem(item: InventoryItem)
+        +planRestock(threshold: Double): List<ShoppingItem>
+    }
+
+    class RecipeManager {
+        -RecipeRepository recipeRepository
+        -PantryRepository pantryRepository
+        +browseRecipes(): List<Recipe>
+        +getCookable(): List<Recipe>
+        +save(recipe: Recipe)
+        +flagFavorite(recipeId: Int, favorite: Boolean)
+    }
+
+    class MealPlanner {
+        -PlanningRepository planningRepository
+        -RecipeRepository recipeRepository
+        +planMeal(recipeId: Int, date: String, servings: Int)
+        +markCooked(recipeId: Int, notes: String?)
+        +upcomingMeals(): List<MealPlan>
+        +recentHistory(limit: Int): List<CookHistoryEntry>
+    }
+
+    class GetCookableRecipes {
+        -RecipeManager recipeManager
+        -PantryManager pantryManager
+        +invoke(): List<Recipe>
+    }
+
+    class AddMissingIngredients {
+        -PantryManager pantryManager
+        +invoke(recipe: Recipe): List<ShoppingItem>
+    }
+
+    class SyncShoppingWithPlan {
+        -MealPlanner mealPlanner
+        -PantryManager pantryManager
+        +invoke(): List<ShoppingItem>
+    }
+
+    class MarkRecipeAsCooked {
+        -MealPlanner mealPlanner
+        +invoke(recipeId: Int, notes: String?)
+    }
+
+    PantryManager --> PantryRepository
+    PantryManager --> RecipeRepository
+
+    RecipeManager --> RecipeRepository
+    RecipeManager --> PantryRepository
+
+    MealPlanner --> PlanningRepository
+    MealPlanner --> RecipeRepository
+
+    GetCookableRecipes --> RecipeManager
+    GetCookableRecipes --> PantryManager
+
+    AddMissingIngredients --> PantryManager
+
+    SyncShoppingWithPlan --> MealPlanner
+    SyncShoppingWithPlan --> PantryManager
+
+    MarkRecipeAsCooked --> MealPlanner
+
+    PantryRepository --> InventoryItem
+    PantryRepository --> ShoppingItem
+
+    RecipeRepository --> Recipe
+    RecipeRepository --> RecipeIngredient
+
+    PlanningRepository --> MealPlan
+    PlanningRepository --> CookHistoryEntry
+
+    Recipe --> RecipeIngredient
+    MealPlan --> Recipe
+    CookHistoryEntry --> Recipe
+
+    InventoryItem --> Ingredient
+    ShoppingItem --> Ingredient
+    RecipeIngredient --> Ingredient

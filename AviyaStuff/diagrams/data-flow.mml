@@ -1,0 +1,80 @@
+%%
+%% Mermaid Flowchart: Data Flow from Database to UI Console
+%% This diagram models the runtime flow when the console requests data for the
+%% "Pantry & Recipes" screen. It highlights validation, mapping, and service
+%% orchestration layers to address previously noted improvement areas.
+%%
+flowchart LR
+    subgraph Storage[Persistence Layer]
+        schema[(SQLite Schema\nIngredients + Recipes + Inventory)]
+        initializer[DatabaseInitializer\nloads db-schema.sql\n+ seed-data.sql]
+        daoInventory[[InventoryDao]]
+        daoRecipes[[RecipesDao]]
+        daoRecipeIngredients[[RecipeIngredientsDao]]
+        daoShopping[[ShoppingDao]]
+        daoMealPlans[[MealPlansDao]]
+        daoCookHistory[[CookHistoryDao]]
+    end
+
+    subgraph DataAccess[Data Access Layer]
+        mapper[DataMapper]
+        validator[DataValidator\nunit & quantity guards]
+        pantryRepo[PantryRepository]
+        recipeRepo[RecipeRepository]
+        planningRepo[PlanningRepository]
+    end
+
+    subgraph Domain[Domain Services]
+        pantryManager[PantryManager]
+        recipeManager[RecipeManager]
+        mealPlanner[MealPlanner]
+    end
+
+    subgraph UseCases[Use-Case Orchestrators]
+        getCookable[GetCookableRecipes]
+        syncShopping[SyncShoppingWithPlan]
+    end
+
+    subgraph UI[Console UI]
+        menu[ConsoleMenu]
+        viewModel[PantryViewModel\n(transforms domain data\nto printable rows)]
+    end
+
+    initializer --> schema
+    menu --> viewModel
+    viewModel --> getCookable : request cookable recipes
+    viewModel --> syncShopping : request shopping sync
+
+    getCookable --> recipeManager
+    getCookable --> pantryManager
+    syncShopping --> mealPlanner
+    syncShopping --> pantryManager
+
+    pantryManager --> pantryRepo
+    recipeManager --> recipeRepo
+    mealPlanner --> planningRepo
+    mealPlanner --> recipeRepo
+
+    pantryRepo --> validator
+    recipeRepo --> validator
+    planningRepo --> validator
+    validator --> mapper
+
+    pantryRepo --> mapper
+    recipeRepo --> mapper
+    planningRepo --> mapper
+
+    mapper --> daoInventory
+    mapper --> daoShopping
+    mapper --> daoRecipes
+    mapper --> daoRecipeIngredients
+    mapper --> daoMealPlans
+    mapper --> daoCookHistory
+
+    daoInventory --> schema
+    daoShopping --> schema
+    daoRecipes --> schema
+    daoRecipeIngredients --> schema
+    daoMealPlans --> schema
+    daoCookHistory --> schema
+
