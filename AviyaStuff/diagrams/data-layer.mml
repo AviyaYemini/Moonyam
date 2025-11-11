@@ -1,9 +1,3 @@
-%%
-%% Mermaid Class Diagram: Data Layer Architecture
-%% This diagram documents the storage-facing components (database config, entities,
-%% DAO interfaces, and repositories) that orchestrate persistence. Each section
-%% is grouped with "class" namespaces to keep relationships explicit.
-%%
 classDiagram
     direction LR
 

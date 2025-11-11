@@ -1,7 +1,3 @@
-# Suggested Project Structure and API Overview
-
-This document consolidates the recommended project layout together with the key APIs that glue the persistence, domain, and presentation layers. It mirrors the schema-backed design that the database imposes, ensuring every layer stays cohesive and object-oriented.
-
 ## 1. Project Directory Tree
 
 ```
@@ -150,3 +146,80 @@ The following sections summarize the responsibilities and typical method signatu
 4. **Consult the Mermaid diagrams** in `docs/diagrams/` for class-level relationships and data-flow context when building or refactoring modules.
 
 This structure balances separation of concerns with practical data workflows, enabling the project to evolve while staying aligned with OOP principles and the underlying database schema.
+
+```
+Moonyam/
+└─ src/main/kotlin/com/moonyam/
+├─ App.kt                              # Entry point of the entire application.
+│                                       # Initializes database, repositories,
+│                                       # and launches the console or GUI interface.
+│
+├─ data/                                # DATA LAYER – persistence and SQL access.
+│  │
+│  ├─ database/                         # Database configuration and lifecycle.
+│  │  ├─ LocalDatabase.kt               # Manages SQLite connections via JDBC.
+│  │  ├─ DbConfig.kt                    # Stores DB path, version, migration info.
+│  │  └─ DatabaseInitializer.kt         # Executes db-schema.sql + seed-data.sql on startup.
+│  │
+│  ├─ dao/                              # Direct SQL interfaces (CRUD per table).
+│  │  ├─ IngredientsDao.kt              # Access canonical ingredient list (Ingredients table).
+│  │  ├─ InventoryDao.kt                # Manages pantry stock levels (Inventory table).
+│  │  ├─ ShoppingDao.kt                 # Handles shopping items, statuses (ShoppingItems table).
+│  │  ├─ RecipesDao.kt                  # CRUD for recipes metadata (Recipes table).
+│  │  ├─ RecipeIngredientsDao.kt        # Manages Recipe–Ingredient links (RecipeIngredients table).
+│  │  ├─ MealPlansDao.kt                # CRUD for scheduled meals (MealPlans table).
+│  │  └─ CookHistoryDao.kt              # Inserts and queries cooking logs (CookHistory table).
+│  │
+│  ├─ entities/                         # 1:1 mapping to database tables (DTO-style objects).
+│  │  ├─ IngredientEntity.kt            # id, name, default_unit, category.
+│  │  ├─ InventoryEntity.kt             # ingredient_id, quantity, unit, expires_at, updated_at.
+│  │  ├─ ShoppingItemEntity.kt          # id, ingredient_id, quantity, unit, status, notes.
+│  │  ├─ RecipeEntity.kt                # id, name, description, instructions, cuisine, favorite.
+│  │  ├─ RecipeIngredientEntity.kt      # recipe_id, ingredient_id, quantity, unit, optional.
+│  │  ├─ MealPlanEntity.kt              # id, recipe_id, scheduled_for, servings.
+│  │  └─ CookHistoryEntity.kt           # id, recipe_id, cooked_at, notes.
+│  │
+│  └─ repositories/                     # Abstraction layer that composes DAOs into business logic.
+│     ├─ IngredientRepository.kt        # High-level API for ingredient lookups and metadata.
+│     ├─ PantryRepository.kt            # Aggregates Inventory + Shopping DAOs into a unified pantry API.
+│     ├─ RecipeRepository.kt            # Combines Recipes + RecipeIngredients + Ingredients.
+│     └─ PlanningRepository.kt          # Connects MealPlans and CookHistory with recipes.
+│
+├─ logic/                               # LOGIC LAYER – data translation, validation, query helpers.
+│  ├─ DataMapper.kt                     # Converts Entities ↔ Domain Models (e.g., RecipeEntity → Recipe).
+│  ├─ QueryBuilder.kt                   # Builds complex dynamic SQL (joins, filters, ordering).
+│  └─ DataValidator.kt                  # Ensures valid units, non-negative quantities, correct foreign keys.
+│
+├─ domain/                              # DOMAIN LAYER – core business logic & object model.
+│  │
+│  ├─ models/                           # Pure Kotlin data classes (no DB dependencies).
+│  │  ├─ Ingredient.kt                  # Represents a unique tracked ingredient (name, default unit, category).
+│  │  ├─ InventoryItem.kt               # Combines Ingredient + quantity + unit + expiry.
+│  │  ├─ ShoppingItem.kt                # Represents an item to purchase (status, notes).
+│  │  ├─ Recipe.kt                      # Full recipe definition, including ingredient list.
+│  │  ├─ RecipeIngredient.kt            # A single ingredient required for a recipe.
+│  │  ├─ MealPlan.kt                    # A scheduled cooking plan with servings and date.
+│  │  └─ CookHistoryEntry.kt            # A record of a past cooked recipe, with optional notes.
+│  │
+│  ├─ services/                         # Managers that orchestrate multiple repositories.
+│  │  ├─ PantryManager.kt               # High-level pantry logic (sync inventory, move bought items).
+│  │  ├─ RecipeManager.kt               # Handles recipe suggestions, favorites, and filtering.
+│  │  └─ MealPlanner.kt                 # Coordinates meal scheduling and cooking history.
+│  │
+│  └─ usecases/                         # Specific actions triggered by the user or UI.
+│     ├─ GetCookableRecipes.kt          # Returns recipes that can be cooked with current inventory.
+│     ├─ AddMissingIngredients.kt       # Finds missing ingredients for a recipe and adds them to ShoppingItems.
+│     ├─ SyncShoppingWithPlan.kt        # Aligns shopping list with upcoming MealPlans.
+│     └─ MarkRecipeAsCooked.kt          # Records a cooked recipe into CookHistory.
+│
+├─ ui/                                  # PRESENTATION LAYER – user interaction.
+│  ├─ ConsoleMenu.kt                    # Command-line interface (temporary UI).
+│  └─ ViewModels.kt                     # Adapts domain models for display (formatting, computed fields).
+│
+└─ resources/                           # Static assets and embedded runtime data.
+├─ moonyam.db                        # SQLite database file used in runtime (if pre-seeded).
+├─ db-schema.sql                     # Full DDL schema definition (matches app’s Entities & DAOs).
+├─ seed-data.sql                     # Initial dataset (sample ingredients, recipes, etc.).
+└─ migrations/                       # Versioned schema upgrade scripts.
+└─ v1_to_v2.sql                   # Example migration file between schema versions.
+```

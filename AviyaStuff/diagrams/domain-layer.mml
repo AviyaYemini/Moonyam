@@ -1,9 +1,3 @@
-%%
-%% Mermaid Class Diagram: Domain and Application Services
-%% This diagram expands on the business-layer abstractions that sit on top of the
-%% repositories. It documents domain models, service managers (facades), and
-%% focused use cases to clarify how composition implements OOP principles.
-%%
 classDiagram
     direction TB
 
